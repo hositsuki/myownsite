@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.example
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+debug.log
+
+# Testing
+coverage/
+.nyc_output/
+
+# Cache directories
+.cache/
+.temp/
+.eslintcache
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project specific
+public/uploads/
+tmp/
+.vercel
