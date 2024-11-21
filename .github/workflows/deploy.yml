@@ -7,23 +7,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  NODE_VERSION: '18'
-  # Server Configuration
-  SERVER_PORT: 5000
-  SERVER_URL: https://myownsite-production.up.railway.app
-  # Client Configuration
-  NEXT_PUBLIC_CLIENT_PORT: 3000
-  # Cache Configuration
-  CACHE_TTL: 3600
-  CACHE_MAX_SIZE: 100
-  # Security Configuration
-  RATE_LIMIT_WINDOW: 900000
-  RATE_LIMIT_MAX_REQUESTS: 100
-  # Image Configuration
-  MAX_IMAGE_SIZE: 5242880
-  ALLOWED_IMAGE_TYPES: image/jpeg,image/png,image/gif,image/webp
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -34,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '18'
           cache: 'npm'
 
       - name: Test Server
@@ -56,7 +39,6 @@ jobs:
           npm test
         env:
           NODE_ENV: test
-          NEXT_PUBLIC_API_URL: ${{ env.SERVER_URL }}
 
   deploy-backend:
     needs: test
@@ -75,24 +57,26 @@ jobs:
         with:
           service: ${{ secrets.RAILWAY_SERVICE_ID }}
           directory: ./server
-          environment:
-            NODE_ENV: production
-            MONGODB_URI: ${{ secrets.MONGODB_URI }}
-            REDIS_URL: ${{ secrets.REDIS_URL }}
-            JWT_SECRET: ${{ secrets.JWT_SECRET }}
-            IMAGE_ENCRYPTION_KEY: ${{ secrets.IMAGE_ENCRYPTION_KEY }}
-            CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-            CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
-            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-            NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
-            SERVER_PORT: ${{ env.SERVER_PORT }}
-            CACHE_TTL: ${{ env.CACHE_TTL }}
-            CACHE_MAX_SIZE: ${{ env.CACHE_MAX_SIZE }}
-            CORS_ORIGINS: ${{ env.SERVER_URL }}
-            RATE_LIMIT_WINDOW: ${{ env.RATE_LIMIT_WINDOW }}
-            RATE_LIMIT_MAX_REQUESTS: ${{ env.RATE_LIMIT_MAX_REQUESTS }}
-            MAX_IMAGE_SIZE: ${{ env.MAX_IMAGE_SIZE }}
-            ALLOWED_IMAGE_TYPES: ${{ env.ALLOWED_IMAGE_TYPES }}
+          environment: |
+            {
+              "NODE_ENV": "production",
+              "MONGODB_URI": "${{ secrets.MONGODB_URI }}",
+              "REDIS_URL": "${{ secrets.REDIS_URL }}",
+              "JWT_SECRET": "${{ secrets.JWT_SECRET }}",
+              "IMAGE_ENCRYPTION_KEY": "${{ secrets.IMAGE_ENCRYPTION_KEY }}",
+              "CLOUDINARY_API_KEY": "${{ secrets.CLOUDINARY_API_KEY }}",
+              "CLOUDINARY_API_SECRET": "${{ secrets.CLOUDINARY_API_SECRET }}",
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": "${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}",
+              "SERVER_PORT": "5000",
+              "CACHE_TTL": "3600",
+              "CACHE_MAX_SIZE": "100",
+              "CORS_ORIGINS": "https://myownsite-production.up.railway.app",
+              "RATE_LIMIT_WINDOW": "900000",
+              "RATE_LIMIT_MAX_REQUESTS": "100",
+              "MAX_IMAGE_SIZE": "5242880",
+              "ALLOWED_IMAGE_TYPES": "image/jpeg,image/png,image/gif,image/webp"
+            }
 
   deploy-frontend:
     needs: deploy-backend
