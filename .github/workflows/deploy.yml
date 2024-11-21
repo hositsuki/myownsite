@@ -18,13 +18,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
+
+      - name: Install Server Dependencies
+        working-directory: ./server
+        run: |
+          npm install
+          npm ci
 
       - name: Test Server
         working-directory: ./server
-        run: |
-          npm ci
-          npm test
+        run: npm test
         env:
           NODE_ENV: test
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
@@ -32,11 +35,15 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           IMAGE_ENCRYPTION_KEY: ${{ secrets.IMAGE_ENCRYPTION_KEY }}
 
-      - name: Test Client
+      - name: Install Client Dependencies
         working-directory: ./client
         run: |
+          npm install
           npm ci
-          npm test
+
+      - name: Test Client
+        working-directory: ./client
+        run: npm test
         env:
           NODE_ENV: test
 
