@@ -17,13 +17,12 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
           
       - name: Install Dependencies
         run: |
-          npm ci
-          cd client && npm ci
-          cd ../server && npm ci
+          npm install
+          cd client && npm install
+          cd ../server && npm install
           
       - name: Run Tests
         run: |
