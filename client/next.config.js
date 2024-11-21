@@ -9,14 +9,9 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   
-  // 启用增量静态再生成
+  // 实验性功能配置
   experimental: {
-    // 启用服务器组件
-    serverComponents: true,
-    // 启用并发特性
-    concurrentFeatures: true,
-    // 启用服务器操作
-    serverActions: true,
+    // Next.js 14 默认启用了这些功能，无需显式配置
   },
 
   // 页面缓存配置
