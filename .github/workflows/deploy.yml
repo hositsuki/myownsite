@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  check-env:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -18,16 +18,111 @@ jobs:
         with:
           node-version: '18'
           
+      - name: Check Environment Variables
+        run: |
+          # Check if all required environment variables are set in GitHub secrets
+          missing_vars=()
+
+          # Read variables from .env.example
+          while IFS= read -r line; do
+            # Skip comments and empty lines
+            [[ $line =~ ^# ]] && continue
+            [[ -z $line ]] && continue
+            
+            # Extract variable name
+            var_name=$(echo "$line" | cut -d'=' -f1)
+            
+            # Skip NEXT_PUBLIC variables for server check
+            [[ $var_name =~ ^NEXT_PUBLIC_ ]] && continue
+            
+            # Check if variable exists in GitHub secrets
+            if [[ -z "${!var_name}" ]]; then
+              missing_vars+=("$var_name")
+            fi
+          done < .env.example
+
+          # Check NEXT_PUBLIC variables for client
+          while IFS= read -r line; do
+            # Skip comments and empty lines
+            [[ $line =~ ^# ]] && continue
+            [[ -z $line ]] && continue
+            
+            # Extract variable name
+            var_name=$(echo "$line" | cut -d'=' -f1)
+            
+            # Only check NEXT_PUBLIC variables
+            [[ ! $var_name =~ ^NEXT_PUBLIC_ ]] && continue
+            
+            # Check if variable exists in GitHub secrets
+            if [[ -z "${!var_name}" ]]; then
+              missing_vars+=("$var_name")
+            fi
+          done < .env.example
+
+          # If any variables are missing, fail the check
+          if [ ${#missing_vars[@]} -ne 0 ]; then
+            echo "❌ Missing environment variables:"
+            printf '%s\n' "${missing_vars[@]}"
+            exit 1
+          fi
+
+          echo "✅ All required environment variables are set"
+        env:
+          # Server variables
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          IMAGE_ENCRYPTION_KEY: ${{ secrets.IMAGE_ENCRYPTION_KEY }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          
+          # Deployment variables
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          DISCORD_WEBHOOK_ID: ${{ secrets.DISCORD_WEBHOOK_ID }}
+          DISCORD_WEBHOOK_TOKEN: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+          
+          # Client variables
+          NEXT_PUBLIC_CLIENT_PORT: ${{ secrets.NEXT_PUBLIC_CLIENT_PORT }}
+          NEXT_PUBLIC_CLIENT_URL: ${{ secrets.NEXT_PUBLIC_CLIENT_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+
+  test:
+    needs: check-env
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build client
+        working-directory: ./client
+        env:
+          NEXT_PUBLIC_API_URL: https://myownsite-production.up.railway.app
+        run: npm run build
+
+      - name: Test client
+        working-directory: ./client
+        run: npm test
+
       - name: Install Dependencies
         run: |
           npm install
-          cd client && npm install
-          cd ../server && npm install
+          cd server && npm install
           
       - name: Run Tests
         run: |
-          cd client && npm run test
-          cd ../server && npm run test
+          cd server && npm run test
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
