@@ -12,8 +12,9 @@ async function getPost(slug: string) {
   }
 }
 
-export default async function BlogPost({ params }: { params: { id: string } }) {
-  const post = await getPost(params.id);
+export default async function BlogPost({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
+  const post = await getPost(resolvedParams.id);
 
   if (!post) {
     notFound();

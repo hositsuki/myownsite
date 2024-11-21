@@ -4,8 +4,19 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
 
+interface Post {
+  slug: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  date: string;
+  readTime: number;
+  tags: string[];
+}
+
 export default function PostsManagement() {
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

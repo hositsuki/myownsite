@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { FiSave, FiRefreshCw, FiTag, FiFileText, FiEdit3, FiImage, FiX } from 'react-icons/fi';
 import ImageUploader from '@/components/ImageUploader';
+import React from 'react';
 
 const MDEditor = dynamic(
   () => import('@uiw/react-md-editor').then((mod) => mod.default),
@@ -14,21 +15,17 @@ const MDEditor = dynamic(
   }
 );
 
-interface MarkdownImageProps {
-  src: string;
-  alt?: string;
-}
-
 const markdownConfig = {
   components: {
-    img: ({ src, alt }: MarkdownImageProps) => (
-      <img 
-        src={src} 
-        alt={alt} 
-        style={{ maxWidth: '100%', height: 'auto' }}
-        crossOrigin="anonymous"
-      />
-    ),
+    img: function(props: React.ImgHTMLAttributes<HTMLImageElement>) {
+      return (
+        <img 
+          {...props}
+          style={{ maxWidth: '100%', height: 'auto', ...props.style }}
+          crossOrigin="anonymous"
+        />
+      );
+    }
   }
 };
 
@@ -40,15 +37,16 @@ interface Post {
 }
 
 interface PostEditorProps {
-  params: {
+  params: Promise<{
     action: string;
     slug?: string;
-  };
+  }>;
 }
 
-export default function PostEditor({ params }: PostEditorProps) {
+export default async function PostEditor({ params }: PostEditorProps) {
+  const resolvedParams = await params;
   const router = useRouter();
-  const isEdit = params.action === 'edit';
+  const isEdit = resolvedParams.action === 'edit';
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
@@ -67,7 +65,7 @@ export default function PostEditor({ params }: PostEditorProps) {
     if (isEdit) {
       const fetchPost = async () => {
         try {
-          const response = await fetch(`/api/posts/${params.slug}`);
+          const response = await fetch(`/api/posts/${resolvedParams.slug}`);
           const data = await response.json();
           setPost(data);
           setLoading(false);
@@ -78,13 +76,13 @@ export default function PostEditor({ params }: PostEditorProps) {
       };
       fetchPost();
     }
-  }, [isEdit, params.slug]);
+  }, [isEdit, resolvedParams.slug]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const method = isEdit ? 'PUT' : 'POST';
-      const url = isEdit ? `/api/posts/${params.slug}` : '/api/posts';
+      const url = isEdit ? `/api/posts/${resolvedParams.slug}` : '/api/posts';
       
       const response = await fetch(url, {
         method,
@@ -338,7 +336,7 @@ export default function PostEditor({ params }: PostEditorProps) {
                 // 移除开头的 /api，保留 /images 路径
                 const cleanImageUrl = imageUrl.replace(/^\/api\/images/, '/images');
                 const imageMarkdown = `![图片](${cleanImageUrl})\n`;
-                const editor = document.querySelector('[role="textbox"]');
+                const editor = document.querySelector('[role="textbox"]') as HTMLTextAreaElement;
                 if (editor) {
                   const cursorPosition = editor.selectionStart || 0;
                   const content = post.content || '';

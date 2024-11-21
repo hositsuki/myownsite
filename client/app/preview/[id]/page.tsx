@@ -1,19 +1,17 @@
 import { Metadata } from 'next';
-import dynamic from 'next/dynamic';
 import { getPreview } from '@/services/posts';
-import '@uiw/react-markdown-preview/markdown.css';
-
-const MDPreview = dynamic(() => import('@uiw/react-markdown-preview'), { ssr: false });
+import { MDPreview } from '@/components/MDPreview';
 
 interface PreviewPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function generateMetadata({ params }: PreviewPageProps): Promise<Metadata> {
   try {
-    const preview = await getPreview(params.id);
+    const resolvedParams = await params;
+    const preview = await getPreview(resolvedParams.id);
     return {
       title: `预览: ${preview.title}`,
       description: preview.seo?.metaDescription,
@@ -28,7 +26,8 @@ export async function generateMetadata({ params }: PreviewPageProps): Promise<Me
 
 export default async function PreviewPage({ params }: PreviewPageProps) {
   try {
-    const preview = await getPreview(params.id);
+    const resolvedParams = await params;
+    const preview = await getPreview(resolvedParams.id);
 
     return (
       <div className="max-w-4xl mx-auto p-8">
@@ -41,7 +40,7 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
         </div>
 
         <div data-color-mode="light" className="prose prose-lg max-w-none">
-          <MDPreview source={preview.content} />
+          <MDPreview content={preview.content} />
         </div>
 
         <div className="mt-8 p-4 bg-yellow-50 rounded-lg">

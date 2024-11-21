@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from '../ui/label';
 import { useToast } from '../ui/use-toast';
 import { Chip, Box, Typography } from '@mui/material';
-import { createPreview, savePost, updatePost, autoSavePost, createPost } from '@/services/posts';
+import { createPreview, updatePost, autoSavePost, createPost } from '@/services/posts';
 
 // 动态导入 MD 编辑器以避免 SSR 问题
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
@@ -88,7 +88,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ initialData, onSave }) => {
   };
 
   // 保存文章
-  const handleSave = async (saveStatus: 'draft' | 'published' | 'scheduled') => {
+  const handleSave = async (saveStatus: 'draft' | 'published' | 'scheduled' | 'archived') => {
     try {
       const postData = {
         title,
@@ -111,6 +111,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ initialData, onSave }) => {
         description: `文章已${
           saveStatus === 'draft' ? '保存为草稿' : 
           saveStatus === 'scheduled' ? '设置为定时发布' : 
+          saveStatus === 'archived' ? '归档' :
           '发布'
         }`,
       });
@@ -221,7 +222,10 @@ const PostEditor: React.FC<PostEditorProps> = ({ initialData, onSave }) => {
 
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Select value={status} onValueChange={setStatus}>
+                  <Select 
+                    value={status} 
+                    onValueChange={(value: 'draft' | 'published' | 'scheduled' | 'archived') => setStatus(value)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="选择状态" />
                     </SelectTrigger>
@@ -314,7 +318,10 @@ const PostEditor: React.FC<PostEditorProps> = ({ initialData, onSave }) => {
                 className="w-auto"
               />
             )}
-            <Select value={status} onValueChange={setStatus}>
+            <Select 
+              value={status} 
+              onValueChange={(value: 'draft' | 'published' | 'scheduled' | 'archived') => setStatus(value)}
+            >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="选择状态" />
               </SelectTrigger>
@@ -328,6 +335,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ initialData, onSave }) => {
             <Button onClick={() => handleSave(status)}>
               {status === 'draft' ? '保存草稿' : 
                status === 'scheduled' ? '设置定时发布' : 
+               status === 'archived' ? '归档' :
                '发布'}
             </Button>
           </div>
