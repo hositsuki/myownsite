@@ -17,13 +17,10 @@ const nextConfig = {
   // 页面缓存配置
   onDemandEntries: {
     // 页面在开发中保持活动的时间（毫秒）
-    maxInactiveAge: 60 * 1000,
+    maxInactiveAge: 25 * 1000,
     // 同时保持活动的页面数
-    pagesBufferLength: 5,
+    pagesBufferLength: 2,
   },
-
-  // 压缩配置
-  compress: true,
 
   // 启用webpack优化
   webpack: (config, { dev, isServer }) => {
@@ -54,6 +51,11 @@ const nextConfig = {
       };
     }
     return config;
+  },
+
+  // 添加环境变量
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
 };
 
