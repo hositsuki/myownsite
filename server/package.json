@@ -1,4 +1,5 @@
 {
+  // Test deployment with Railway project and service IDs
   "name": "personal-website-server",
   "version": "1.0.0",
   "description": "",

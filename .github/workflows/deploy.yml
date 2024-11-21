@@ -47,6 +47,7 @@ jobs:
         id: deploy
         run: |
           cd server
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }} --service ${{ secrets.RAILWAY_SERVICE_ID }}
           URL=$(railway up --json | jq -r '.url')
           echo "url=$URL" >> $GITHUB_OUTPUT
         env:
