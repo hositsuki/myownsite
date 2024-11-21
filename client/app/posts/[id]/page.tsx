@@ -3,7 +3,7 @@
 import React from 'react';
 import { useParams } from 'next/navigation';
 import { Container, Typography, Box, Divider, Chip, Card, CardContent } from '@mui/material';
-import { getPostById, getRelatedPosts } from '@/services/posts';
+import { getPost, getRelatedPosts } from '@/services/posts';
 import CommentSection from '@/components/Comments/CommentSection';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -17,7 +17,7 @@ const PostPage = () => {
   React.useEffect(() => {
     const fetchPost = async () => {
       try {
-        const data = await getPostById(id as string);
+        const data = await getPost(id as string);
         setPost(data);
         const related = await getRelatedPosts(id as string);
         setRelatedPosts(related);

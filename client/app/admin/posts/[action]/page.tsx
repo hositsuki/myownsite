@@ -14,9 +14,14 @@ const MDEditor = dynamic(
   }
 );
 
+interface MarkdownImageProps {
+  src: string;
+  alt?: string;
+}
+
 const markdownConfig = {
   components: {
-    img: ({ src, alt }) => (
+    img: ({ src, alt }: MarkdownImageProps) => (
       <img 
         src={src} 
         alt={alt} 
@@ -27,17 +32,31 @@ const markdownConfig = {
   }
 };
 
-export default function PostEditor({ params }) {
+interface Post {
+  title: string;
+  content: string;
+  tags: string[];
+  excerpt: string;
+}
+
+interface PostEditorProps {
+  params: {
+    action: string;
+    slug?: string;
+  };
+}
+
+export default function PostEditor({ params }: PostEditorProps) {
   const router = useRouter();
   const isEdit = params.action === 'edit';
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
-  const [suggestedTitles, setSuggestedTitles] = useState([]);
-  const [suggestedTags, setSuggestedTags] = useState([]);
+  const [suggestedTitles, setSuggestedTitles] = useState<string[]>([]);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
   const [showImageUploader, setShowImageUploader] = useState(false);
-  const [post, setPost] = useState({
+  const [post, setPost] = useState<Post>({
     title: '',
     content: '',
     tags: [],
