@@ -58,6 +58,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
+      - name: Debug Vercel Configuration
+        run: |
+          echo "Checking Vercel configuration..."
+          echo "VERCEL_TOKEN exists: ${{ secrets.VERCEL_TOKEN != '' }}"
+          echo "VERCEL_ORG_ID exists: ${{ secrets.VERCEL_ORG_ID != '' }}"
+          echo "VERCEL_PROJECT_ID exists: ${{ secrets.VERCEL_PROJECT_ID != '' }}"
+      
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v20
         with:
@@ -72,6 +79,7 @@ jobs:
   notify:
     needs: [deploy-frontend, deploy-backend]
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - name: Notify Deployment Status
         uses: appleboy/discord-action@master
@@ -79,10 +87,10 @@ jobs:
           webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           message: |
-            🚀 Deployment Complete!
+            🚀 Deployment Status Update
             
-            Frontend: ${{ needs.deploy-frontend.outputs.preview-url }}
-            Backend: ${{ needs.deploy-backend.outputs.backend_url }}
+            Frontend: ${{ needs.deploy-frontend.outputs.preview-url || 'Failed' }}
+            Backend: ${{ needs.deploy-backend.outputs.backend_url || 'Failed' }}
             
             Commit: ${{ github.event.head_commit.message }}
             Author: ${{ github.event.head_commit.author.name }}
