@@ -68,27 +68,51 @@ jobs:
 
           echo "✅ All required environment variables are set"
         env:
-          # Server variables
+          # Server Configuration
+          NODE_ENV: production
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_URL: https://myownsite-production.up.railway.app
+
+          # Database Configuration
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           REDIS_URL: ${{ secrets.REDIS_URL }}
+
+          # Authentication
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           IMAGE_ENCRYPTION_KEY: ${{ secrets.IMAGE_ENCRYPTION_KEY }}
+
+          # Cloudinary Configuration
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+
+          # OpenAI Configuration
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          
-          # Deployment variables
+
+          # Cache Configuration
+          CACHE_TTL: 3600
+          CACHE_MAX_SIZE: 100
+
+          # Security Configuration
+          CORS_ORIGINS: https://yukisakura.moe,https://myownsite-production.up.railway.app
+          RATE_LIMIT_WINDOW: 900000
+          RATE_LIMIT_MAX_REQUESTS: 100
+
+          # Image Configuration
+          MAX_IMAGE_SIZE: 5242880
+          ALLOWED_IMAGE_TYPES: image/jpeg,image/png,image/gif,image/webp
+
+          # Client Configuration
+          NEXT_PUBLIC_CLIENT_PORT: 3000
+          NEXT_PUBLIC_CLIENT_URL: https://yukisakura.moe
+          NEXT_PUBLIC_API_URL: https://myownsite-production.up.railway.app
+          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+
+          # Deployment Configuration
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
           DISCORD_WEBHOOK_ID: ${{ secrets.DISCORD_WEBHOOK_ID }}
           DISCORD_WEBHOOK_TOKEN: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          
-          # Client variables
-          NEXT_PUBLIC_CLIENT_PORT: ${{ secrets.NEXT_PUBLIC_CLIENT_PORT }}
-          NEXT_PUBLIC_CLIENT_URL: ${{ secrets.NEXT_PUBLIC_CLIENT_URL }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
 
   test:
     needs: check-env
@@ -105,10 +129,12 @@ jobs:
         working-directory: ./client
         run: npm ci
 
-      - name: Build client
+      - name: Build Client
         working-directory: ./client
         env:
-          NEXT_PUBLIC_API_URL: https://myownsite-production.up.railway.app
+          NEXT_PUBLIC_API_URL: ${{ needs.deploy-backend.outputs.backend_url }}
+          # 客户端使用 Vercel 提供的域名
+          NEXT_PUBLIC_CLIENT_URL: ${{ steps.vercel-deploy.outputs.url }}
         run: npm run build
 
       - name: Test client
@@ -151,6 +177,8 @@ jobs:
   deploy-frontend:
     needs: deploy-backend
     runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.vercel-deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v3
       
@@ -162,6 +190,7 @@ jobs:
           echo "VERCEL_PROJECT_ID exists: ${{ secrets.VERCEL_PROJECT_ID != '' }}"
       
       - name: Deploy to Vercel
+        id: vercel-deploy
         uses: amondnet/vercel-action@v20
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -172,6 +201,11 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ needs.deploy-backend.outputs.backend_url }}
           
+      - name: Get Deployment URL
+        run: |
+          URL=$(vercel ls | grep -oE 'https://[^ ]+')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
   notify:
     needs: [deploy-frontend, deploy-backend]
     runs-on: ubuntu-latest
@@ -185,7 +219,7 @@ jobs:
           message: |
             🚀 Deployment Status Update
             
-            Frontend: ${{ needs.deploy-frontend.outputs.preview-url || 'Failed' }}
+            Frontend: ${{ needs.deploy-frontend.outputs.url || 'Failed' }}
             Backend: ${{ needs.deploy-backend.outputs.backend_url || 'Failed' }}
             
             Commit: ${{ github.event.head_commit.message }}
