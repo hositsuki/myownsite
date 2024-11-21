@@ -7,191 +7,101 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  NODE_VERSION: '18'
+  # Server Configuration
+  SERVER_PORT: 5000
+  SERVER_URL: https://myownsite-production.up.railway.app
+  # Client Configuration
+  NEXT_PUBLIC_CLIENT_PORT: 3000
+  NEXT_PUBLIC_API_URL: ${{ env.SERVER_URL }}
+  # Cache Configuration
+  CACHE_TTL: 3600
+  CACHE_MAX_SIZE: 100
+  # Security Configuration
+  CORS_ORIGINS: ${{ env.SERVER_URL }}
+  RATE_LIMIT_WINDOW: 900000
+  RATE_LIMIT_MAX_REQUESTS: 100
+  # Image Configuration
+  MAX_IMAGE_SIZE: 5242880
+  ALLOWED_IMAGE_TYPES: image/jpeg,image/png,image/gif,image/webp
+
 jobs:
-  check-env:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
-          
-      - name: Check Environment Variables
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Test Server
+        working-directory: ./server
         run: |
-          # Check if all required environment variables are set in GitHub secrets
-          missing_vars=()
-
-          # Read variables from .env.example
-          while IFS= read -r line; do
-            # Skip comments and empty lines
-            [[ $line =~ ^# ]] && continue
-            [[ -z $line ]] && continue
-            
-            # Extract variable name
-            var_name=$(echo "$line" | cut -d'=' -f1)
-            
-            # Skip NEXT_PUBLIC variables for server check
-            [[ $var_name =~ ^NEXT_PUBLIC_ ]] && continue
-            
-            # Check if variable exists in GitHub secrets
-            if [[ -z "${!var_name}" ]]; then
-              missing_vars+=("$var_name")
-            fi
-          done < .env.example
-
-          # Check NEXT_PUBLIC variables for client
-          while IFS= read -r line; do
-            # Skip comments and empty lines
-            [[ $line =~ ^# ]] && continue
-            [[ -z $line ]] && continue
-            
-            # Extract variable name
-            var_name=$(echo "$line" | cut -d'=' -f1)
-            
-            # Only check NEXT_PUBLIC variables
-            [[ ! $var_name =~ ^NEXT_PUBLIC_ ]] && continue
-            
-            # Check if variable exists in GitHub secrets
-            if [[ -z "${!var_name}" ]]; then
-              missing_vars+=("$var_name")
-            fi
-          done < .env.example
-
-          # If any variables are missing, fail the check
-          if [ ${#missing_vars[@]} -ne 0 ]; then
-            echo "❌ Missing environment variables:"
-            printf '%s\n' "${missing_vars[@]}"
-            exit 1
-          fi
-
-          echo "✅ All required environment variables are set"
+          npm ci
+          npm test
         env:
-          # Server Configuration
-          NODE_ENV: production
-          SERVER_PORT: ${{ secrets.SERVER_PORT }}
-          SERVER_URL: https://myownsite-production.up.railway.app
-
-          # Database Configuration
+          NODE_ENV: test
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           REDIS_URL: ${{ secrets.REDIS_URL }}
-
-          # Authentication
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           IMAGE_ENCRYPTION_KEY: ${{ secrets.IMAGE_ENCRYPTION_KEY }}
 
-          # Cloudinary Configuration
-          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
-
-          # OpenAI Configuration
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
-          # Cache Configuration
-          CACHE_TTL: 3600
-          CACHE_MAX_SIZE: 100
-
-          # Security Configuration
-          CORS_ORIGINS: https://yukisakura.moe,https://myownsite-production.up.railway.app
-          RATE_LIMIT_WINDOW: 900000
-          RATE_LIMIT_MAX_REQUESTS: 100
-
-          # Image Configuration
-          MAX_IMAGE_SIZE: 5242880
-          ALLOWED_IMAGE_TYPES: image/jpeg,image/png,image/gif,image/webp
-
-          # Client Configuration
-          NEXT_PUBLIC_CLIENT_PORT: 3000
-          NEXT_PUBLIC_CLIENT_URL: https://yukisakura.moe
-          NEXT_PUBLIC_API_URL: https://myownsite-production.up.railway.app
-          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
-
-          # Deployment Configuration
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-          DISCORD_WEBHOOK_ID: ${{ secrets.DISCORD_WEBHOOK_ID }}
-          DISCORD_WEBHOOK_TOKEN: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-
-  test:
-    needs: check-env
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          
-      - name: Install client dependencies
+      - name: Test Client
         working-directory: ./client
-        run: npm ci
-
-      - name: Build Client
-        working-directory: ./client
-        env:
-          NEXT_PUBLIC_API_URL: ${{ needs.deploy-backend.outputs.backend_url }}
-          # 客户端使用 Vercel 提供的域名
-          NEXT_PUBLIC_CLIENT_URL: ${{ steps.vercel-deploy.outputs.url }}
-        run: npm run build
-
-      - name: Test client
-        working-directory: ./client
-        run: npm test
-
-      - name: Install Dependencies
         run: |
-          npm install
-          cd server && npm install
-          
-      - name: Run Tests
-        run: |
-          cd server && npm run test
+          npm ci
+          npm test
         env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          NODE_ENV: test
+          NEXT_PUBLIC_API_URL: ${{ env.SERVER_URL }}
 
   deploy-backend:
     needs: test
     runs-on: ubuntu-latest
-    outputs:
-      backend_url: ${{ steps.deploy.outputs.url }}
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Install Railway CLI
-        run: npm i -g @railway/cli
-        
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Deploy to Railway
-        id: deploy
-        run: |
-          cd server
-          railway link ${{ secrets.RAILWAY_PROJECT_ID }} --service ${{ secrets.RAILWAY_SERVICE_ID }}
-          URL=$(railway up --json | jq -r '.url')
-          echo "url=$URL" >> $GITHUB_OUTPUT
+        uses: bervProject/railway-deploy@main
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        with:
+          service: ${{ secrets.RAILWAY_SERVICE_ID }}
+          directory: ./server
+          environment:
+            NODE_ENV: production
+            MONGODB_URI: ${{ secrets.MONGODB_URI }}
+            REDIS_URL: ${{ secrets.REDIS_URL }}
+            JWT_SECRET: ${{ secrets.JWT_SECRET }}
+            IMAGE_ENCRYPTION_KEY: ${{ secrets.IMAGE_ENCRYPTION_KEY }}
+            CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+            CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+            NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+            SERVER_PORT: ${{ env.SERVER_PORT }}
+            CACHE_TTL: ${{ env.CACHE_TTL }}
+            CACHE_MAX_SIZE: ${{ env.CACHE_MAX_SIZE }}
+            CORS_ORIGINS: ${{ env.CORS_ORIGINS }}
+            RATE_LIMIT_WINDOW: ${{ env.RATE_LIMIT_WINDOW }}
+            RATE_LIMIT_MAX_REQUESTS: ${{ env.RATE_LIMIT_MAX_REQUESTS }}
+            MAX_IMAGE_SIZE: ${{ env.MAX_IMAGE_SIZE }}
+            ALLOWED_IMAGE_TYPES: ${{ env.ALLOWED_IMAGE_TYPES }}
 
   deploy-frontend:
     needs: deploy-backend
     runs-on: ubuntu-latest
-    outputs:
-      url: ${{ steps.vercel-deploy.outputs.url }}
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Debug Vercel Configuration
-        run: |
-          echo "Checking Vercel configuration..."
-          echo "VERCEL_TOKEN exists: ${{ secrets.VERCEL_TOKEN != '' }}"
-          echo "VERCEL_ORG_ID exists: ${{ secrets.VERCEL_ORG_ID != '' }}"
-          echo "VERCEL_PROJECT_ID exists: ${{ secrets.VERCEL_PROJECT_ID != '' }}"
-      
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Deploy to Vercel
-        id: vercel-deploy
-        uses: amondnet/vercel-action@v20
+        uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
@@ -199,28 +109,24 @@ jobs:
           working-directory: ./client
           vercel-args: '--prod'
         env:
-          NEXT_PUBLIC_API_URL: ${{ needs.deploy-backend.outputs.backend_url }}
-          
-      - name: Get Deployment URL
-        run: |
-          URL=$(vercel ls | grep -oE 'https://[^ ]+')
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          NEXT_PUBLIC_API_URL: ${{ env.SERVER_URL }}
+          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
 
   notify:
-    needs: [deploy-frontend, deploy-backend]
+    needs: [deploy-backend, deploy-frontend]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Notify Deployment Status
-        uses: appleboy/discord-action@master
+      - name: Send Discord Notification
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: https://discord.com/api/webhooks/${{ secrets.DISCORD_WEBHOOK_ID }}/${{ secrets.DISCORD_WEBHOOK_TOKEN }}
         with:
-          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
-          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          message: |
-            🚀 Deployment Status Update
+          args: |
+            🚀 Deployment Status:
+            Backend: ${{ needs.deploy-backend.result }}
+            Frontend: ${{ needs.deploy-frontend.result }}
             
-            Frontend: ${{ needs.deploy-frontend.outputs.url || 'Failed' }}
-            Backend: ${{ needs.deploy-backend.outputs.backend_url || 'Failed' }}
-            
-            Commit: ${{ github.event.head_commit.message }}
-            Author: ${{ github.event.head_commit.author.name }}
+            Environment: Production
+            Triggered by: ${{ github.actor }}
+            Commit: ${{ github.sha }}
