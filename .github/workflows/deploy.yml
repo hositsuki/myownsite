@@ -124,7 +124,7 @@ jobs:
         run: |
           cd server
           npm install
-          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
+          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach --directory .
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
