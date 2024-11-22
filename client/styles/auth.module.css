@@ -1,0 +1,52 @@
+.authContainer {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f2f5;
+  padding: 24px;
+}
+
+.authCard {
+  background: white;
+  padding: 32px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 400px;
+}
+
+.authTitle {
+  text-align: center;
+  margin-bottom: 32px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #1890ff;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.registerLink,
+.loginLink {
+  text-align: center;
+}
+
+.oauthButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.oauthButtons button {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oauthButtons button span {
+  margin-right: 8px;
+}

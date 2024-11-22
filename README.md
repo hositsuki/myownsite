@@ -1,167 +1,189 @@
-# Personal Website
+# 个人网站
 
-A modern, responsive personal blog and portfolio website built with Next.js 13 and TypeScript.
+基于 Next.js 13 和 TypeScript 构建的现代响应式个人博客和作品集网站。
 
-## Features
+## 主要功能
 
-- 🚀 Built with Next.js 13 App Router
-- 💎 TypeScript for type safety
-- 🎨 Tailwind CSS for styling
-- 🌟 Framer Motion animations
-- 📱 Fully responsive design
-- 🔒 API routes with Express backend
-- 🗄️ MongoDB database
-- 🔐 JWT authentication
-- 📝 Rich text editor for blog posts
-- 🖼️ Image optimization with Cloudinary CDN
-- 🤖 AI-powered features (tags generation, reading time estimation)
-- 💾 Redis caching for improved performance
-- 🔍 Full-text search capability
-- 🏷️ Tag-based article categorization
-- 📊 Analytics dashboard
-- 🔄 Auto-deployment with CI/CD
+- 🚀 基于 Next.js 13 App Router 构建
+- 💎 使用 TypeScript 确保类型安全
+- 🎨 采用 Tailwind CSS 构建界面
+- 🌟 Framer Motion 动画效果
+- 📱 全响应式设计
+- 🔒 Express 后端 API
+- 🗄️ MongoDB 数据库
+- 🔐 JWT 身份认证
+- 📝 富文本博客编辑器
+- 🖼️ Cloudinary CDN 图片优化
+- 🤖 AI 辅助功能（标签生成、阅读时间估算）
+- 💾 Redis 缓存优化
+- 🔍 全文搜索功能
+- 🏷️ 文章标签分类
+- 📊 数据分析面板
 
-## Getting Started
+## 快速开始
 
-### Prerequisites
+### 环境要求
 
-- Node.js 16.8 or later
-- MongoDB Atlas account
-- Cloudinary account
-- Redis (via Upstash)
-- OpenAI API key
+- Node.js 16.8 或更高版本
+- MongoDB Atlas 账号
+- Cloudinary 账号
+- Redis (通过 Upstash)
+- OpenAI API 密钥
 
-### Installation
+### 安装步骤
 
-1. Clone the repository:
+1. 克隆项目:
 ```bash
-git clone <your-repo-url>
+git clone <仓库地址>
 cd personal-website
 ```
 
-2. Install dependencies:
+2. 安装依赖:
 ```bash
 npm install
 ```
 
-3. Copy `.env.example` to `.env` in the root directory and update the environment variables:
+3. 配置环境变量:
 ```bash
 cp .env.example .env
 ```
 
-4. Start the development server:
+4. 启动开发服务器:
 ```bash
 npm run dev
 ```
 
-The website should now be running at [http://localhost:3000](http://localhost:3000).
+访问 [http://localhost:3000](http://localhost:3000) 查看网站。
 
-## Project Structure
+## 系统架构
 
-```
-personal-website/
-├── client/                 # Next.js frontend
-│   ├── app/               # Next.js 13 app directory
-│   ├── components/        # React components
-│   ├── services/          # API services
-│   └── types/             # TypeScript types
-├── server/                # Express backend
-│   ├── src/
-│   │   ├── routes/       # API routes
-│   │   ├── models/       # MongoDB models
-│   │   ├── services/     # Business logic
-│   │   └── middleware/   # Custom middleware
-│   └── package.json
-└── package.json
-```
+### 整体架构
 
-## Deployment
+本项目采用前后端分离的现代Web应用架构，主要包含以下核心部分：
 
-### Frontend (Vercel)
-1. Connect your GitHub repository to Vercel
-2. Configure environment variables in Vercel dashboard
-3. Deploy with `git push`
+#### 前端架构 (Next.js 13)
+- **页面渲染**: 采用Next.js 13的App Router，支持服务端渲染(SSR)和静态生成(SSG)
+- **状态管理**: 使用React Context + Hooks管理全局状态
+- **UI组件**: 基于Tailwind CSS构建的响应式组件库
+- **客户端路由**: Next.js内置路由系统，支持动态路由和中间件
+- **API集成**: Axios + SWR用于数据获取和缓存
 
-### Backend (Railway)
-1. Create new project in Railway
-2. Add your GitHub repository
-3. Configure environment variables
-4. Deploy with `git push`
+#### 后端架构 (Express + TypeScript)
+- **API服务**: RESTful API，支持版本控制
+- **认证系统**: JWT + Redis实现的token管理
+- **数据层**: MongoDB作为主数据库，Redis作为缓存层
+- **文件存储**: Cloudinary CDN用于图片存储和处理
+- **AI服务**: OpenAI API集成，用于内容增强
 
-### Database
-- MongoDB: Use MongoDB Atlas
-- Redis: Use Upstash
-- Images: Use Cloudinary
+### 核心服务
 
-### Environment Variables
+#### 1. 认证服务 (AuthService)
+- JWT token生成和验证
+- 刷新token机制
+- 基于Redis的token黑名单
+- 角色权限控制
 
-Required environment variables:
-```env
-# Application
-NODE_ENV=production
-SERVER_PORT=5000
-
-# Database
-MONGODB_URI=your_mongodb_uri
-REDIS_URL=your_redis_url
-
-# Authentication
-JWT_SECRET=your_jwt_secret
-IMAGE_ENCRYPTION_KEY=your_key
-
-# Services
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_secret
-OPENAI_API_KEY=your_key
+```typescript
+interface AuthService {
+  login(credentials: LoginDTO): Promise<TokenResponse>;
+  refreshToken(token: string): Promise<TokenResponse>;
+  validateToken(token: string): Promise<boolean>;
+  revokeToken(token: string): Promise<void>;
+}
 ```
 
-## Available Scripts
+#### 2. 图片服务 (ImageService)
+- 图片上传和处理
+- 自动生成缩略图
+- CDN集成
+- 图片优化
 
-- `npm run dev`: Start development server
-- `npm run build`: Build for production
-- `npm start`: Start production server
-- `npm run lint`: Run ESLint
-- `npm run type-check`: Run TypeScript checks
+```typescript
+interface ImageService {
+  upload(file: File): Promise<ImageResponse>;
+  generateThumbnail(url: string): Promise<string>;
+  optimize(image: Buffer): Promise<Buffer>;
+  delete(publicId: string): Promise<void>;
+}
+```
 
-## Technologies Used
+#### 3. 博客服务 (BlogService)
+- 文章CRUD操作
+- 标签管理
+- 全文搜索
+- AI辅助内容生成
 
-### Frontend
-- Next.js 13 (App Router)
-- TypeScript
-- Tailwind CSS
-- Framer Motion
-- TipTap Editor
-- Axios
+```typescript
+interface BlogService {
+  createPost(post: PostDTO): Promise<Post>;
+  updatePost(id: string, post: PostDTO): Promise<Post>;
+  searchPosts(query: SearchQuery): Promise<SearchResult>;
+  generateTags(content: string): Promise<string[]>;
+}
+```
 
-### Backend
-- Node.js
-- Express
-- MongoDB
-- Redis
-- JWT
-- Cloudinary
-- OpenAI
+#### 4. 缓存服务 (CacheService)
+- API响应缓存
+- 用户会话管理
+- 热点数据缓存
+- 限流控制
 
-### Infrastructure
-- Vercel (Frontend hosting)
-- Railway (Backend hosting)
-- MongoDB Atlas (Database)
-- Upstash (Redis)
-- Cloudinary (CDN)
-- GitHub Actions (CI/CD)
+```typescript
+interface CacheService {
+  get(key: string): Promise<any>;
+  set(key: string, value: any, ttl?: number): Promise<void>;
+  invalidate(pattern: string): Promise<void>;
+  rateLimit(key: string, limit: number): Promise<boolean>;
+}
+```
 
-## Contributing
+### 数据流
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. **用户认证流程**:
+   ```
+   客户端 -> 登录请求 -> AuthService验证 -> 生成JWT -> Redis存储会话 -> 返回Token
+   ```
 
-## License
+2. **博客发布流程**:
+   ```
+   编辑文章 -> 上传图片(ImageService) -> AI生成标签 -> 保存到MongoDB -> 更新缓存 -> 返回结果
+   ```
 
-This project is licensed under the MIT License.
+3. **搜索流程**:
+   ```
+   搜索请求 -> 检查缓存 -> MongoDB全文搜索 -> 更新缓存 -> 返回结果
+   ```
 
-🚀 CI/CD Status: Active
-Last updated: {{ new Date().toISOString() }}
+### 关键技术实现
+
+#### 1. 性能优化
+- Redis多级缓存策略
+- 图片懒加载和预加载
+- API响应压缩
+- 静态资源CDN分发
+
+#### 2. 安全措施
+- CSRF防护
+- XSS过滤
+- 请求限流
+- 敏感数据加密
+
+#### 3. 监控告警
+- 错误日志收集
+- 性能指标监控
+- 用户行为分析
+- 系统健康检查
+
+### 开发指南
+
+#### API开发规范
+1. 遵循RESTful设计原则
+2. 统一错误处理格式
+3. 请求参数验证
+4. API文档同步更新
+
+#### 组件开发规范
+1. 组件原子化设计
+2. Props类型严格定义
+3. 样式模块化管理
+4. 单元测试覆盖

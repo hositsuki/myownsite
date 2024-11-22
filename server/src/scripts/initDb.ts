@@ -1,33 +1,22 @@
 import dotenv from 'dotenv'
 import connectDB from '../config/database'
-import Project from '../models/Project'
+import { Post } from '../models/Post'
+import { User } from '../models/User'
 
 dotenv.config()
 
 const testConnection = async () => {
   try {
     await connectDB()
+    console.log('✅ Successfully connected to MongoDB')
 
-    // Test creating a project
-    const testProject = new Project({
-      title: 'Test Project',
-      description: 'This is a test project to verify MongoDB Atlas connection',
-      technologies: ['Node.js', 'MongoDB Atlas'],
-      image: 'https://example.com/test.jpg',
-      link: 'https://example.com',
-      featured: true,
-    })
+    // 测试获取用户
+    const users = await User.find().limit(1)
+    console.log('👥 Users in database:', users.length)
 
-    await testProject.save()
-    console.log('✅ Test project created successfully')
-
-    // Fetch the project
-    const projects = await Project.find()
-    console.log('📚 Current projects in database:', projects)
-
-    // Clean up
-    await Project.deleteOne({ title: 'Test Project' })
-    console.log('🧹 Test project cleaned up')
+    // 测试获取文章
+    const posts = await Post.find().limit(1)
+    console.log('📝 Posts in database:', posts.length)
 
     process.exit(0)
   } catch (error) {

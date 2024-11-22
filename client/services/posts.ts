@@ -1,140 +1,155 @@
 import axios from 'axios';
+import { BaseService } from './base';
+import { Post, CreatePostInput, UpdatePostInput } from '@/types/post';
+import { Comment, CreateCommentInput } from '@/types/comment';
+import { AxiosRequestConfig } from 'axios';
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api`;
 
-// 文章相关API
-export const getPosts = async (params?: { 
-  status?: 'draft' | 'published' | 'scheduled' | 'archived'; 
-  category?: string;
-}) => {
-  const response = await axios.get(`${API_URL}/posts`, { params });
-  return response.data;
-};
-
-export const getPost = async (slug: string) => {
-  const response = await axios.get(`${API_URL}/posts/${slug}`);
-  return response.data;
-};
-
-export const createPost = async (data: any) => {
-  const response = await axios.post(`${API_URL}/posts`, data, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-  return response.data;
-};
-
-export const updatePost = async (slug: string, data: any) => {
-  const response = await axios.put(`${API_URL}/posts/${slug}`, data, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-  return response.data;
-};
-
-export const deletePost = async (slug: string) => {
-  const response = await axios.delete(`${API_URL}/posts/${slug}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-  return response.data;
-};
-
-// 预览相关API
-export const createPreview = async (data: any) => {
-  const response = await axios.post(`${API_URL}/preview`, data, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-  return response.data;
-};
-
-export const getPreview = async (previewId: string) => {
-  const response = await axios.get(`${API_URL}/preview/${previewId}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-  return response.data;
-};
-
-// 评论相关API
-export const addComment = async (slug: string, data: any) => {
-  const response = await axios.post(`${API_URL}/posts/${slug}/comments`, data);
-  return response.data;
-};
-
-export const approveComment = async (slug: string, commentId: string) => {
-  const response = await axios.patch(
-    `${API_URL}/posts/${slug}/comments/${commentId}`,
-    { isApproved: true },
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    }
-  );
-  return response.data;
-};
-
-// 分类相关API
-export const getCategories = async () => {
-  const response = await axios.get(`${API_URL}/posts/categories`);
-  return response.data;
-};
-
-// 标签相关API
-export const getPostsByTag = async (tag: string) => {
-  const response = await axios.get(`${API_URL}/posts/tags/${tag}`);
-  return response.data;
-};
-
-// 状态管理API
-export const updatePostStatus = async (slug: string, data: { 
-  status: 'draft' | 'published' | 'scheduled' | 'archived';
-  scheduledPublishDate?: Date;
-}) => {
-  const response = await axios.patch(`${API_URL}/posts/${slug}/status`, data, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-  return response.data;
-};
-
-export const getPostHistory = async (slug: string) => {
-  const response = await axios.get(`${API_URL}/posts/${slug}/history`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-  return response.data;
-};
-
-// 自动保存API
-export const autoSavePost = async (slug: string, content: string) => {
-  const response = await axios.post(`${API_URL}/posts/${slug}/autosave`, 
-    { content },
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    }
-  );
-  return response.data;
-};
-
-// 相关文章API
-export const getRelatedPosts = async (postId: string): Promise<any[]> => {
-  try {
-    const response = await axios.get(`${API_URL}/posts/${postId}/related`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching related posts:', error);
-    return [];
+class PostService extends BaseService<Post> {
+  constructor() {
+    super(`${API_URL}/posts`);
   }
-};
+
+  // 获取文章列表
+  async getPosts(params?: { 
+    status?: 'draft' | 'published' | 'scheduled' | 'archived';
+    category?: string;
+  }) {
+    return this.request('get', '', undefined, params);
+  }
+
+  // 获取已发布的文章列表
+  async getPublishedPosts(params?: any) {
+    return this.getPosts({ ...params, status: 'published' });
+  }
+
+  // 获取草稿列表
+  async getDrafts(params?: any) {
+    return this.getPosts({ ...params, status: 'draft' });
+  }
+
+  // 通过slug获取文章
+  async getBySlug(slug: string, config?: AxiosRequestConfig) {
+    return this.request('get', `/slug/${slug}`, undefined, undefined, config);
+  }
+
+  // 获取文章
+  async getPost(slug: string) {
+    return this.getBySlug(slug);
+  }
+
+  // 获取相关文章
+  async getRelatedPosts(postId: string) {
+    return this.request('get', `/${postId}/related`);
+  }
+
+  // 获取预览
+  async getPreview(id: string, config?: AxiosRequestConfig) {
+    return this.request('get', `/preview/${id}`, undefined, undefined, config);
+  }
+
+  // 创建预览
+  async createPreview(data: CreatePostInput, config?: AxiosRequestConfig) {
+    return this.request('post', '/preview', data as Record<string, unknown>, undefined, config);
+  }
+
+  // 发布文章
+  async publish(id: string, config?: AxiosRequestConfig) {
+    return this.request('post', `/${id}/publish`, {}, undefined, config);
+  }
+
+  // 取消发布文章
+  async unpublish(id: string, config?: AxiosRequestConfig) {
+    return this.request('post', `/${id}/unpublish`, {}, undefined, config);
+  }
+
+  // 获取文章标签列表
+  async getTags() {
+    return this.request('get', '/tags');
+  }
+
+  // 获取热门文章
+  async getPopular(limit: number = 5) {
+    return this.request('get', '/popular', undefined, { limit });
+  }
+
+  // 增加文章浏览次数
+  async incrementViews(id: string) {
+    return this.request('post', `/${id}/views`);
+  }
+
+  // 创建文章
+  async createPost(data: CreatePostInput) {
+    return this.create(data as unknown as Omit<Post, keyof BaseModel>);
+  }
+
+  // 更新文章
+  async updatePost(slug: string, data: UpdatePostInput) {
+    return this.request('put', `/slug/${slug}`, data as Record<string, unknown>);
+  }
+
+  // 删除文章
+  async deletePost(slug: string) {
+    return this.request('delete', `/slug/${slug}`);
+  }
+
+  // 自动保存
+  async autoSave(id: string, data: Partial<Post>, config?: AxiosRequestConfig) {
+    return this.request('post', `/${id}/autosave`, data as Record<string, unknown>, undefined, config);
+  }
+
+  // 评论相关API
+  async getComments(postId: string, config?: AxiosRequestConfig) {
+    return this.request('get', `/${postId}/comments`, undefined, undefined, config);
+  }
+
+  async createComment(data: CreateCommentInput, config?: AxiosRequestConfig) {
+    return this.request('post', `/${data.postId}/comments`, data as Record<string, unknown>, undefined, config);
+  }
+
+  async approveComment(postId: string, commentId: string, config?: AxiosRequestConfig) {
+    return this.request(
+      'post',
+      `/${postId}/comments/${commentId}/approve`,
+      {},
+      undefined,
+      config
+    );
+  }
+
+  async rejectComment(postId: string, commentId: string, config?: AxiosRequestConfig) {
+    return this.request(
+      'post',
+      `/${postId}/comments/${commentId}/reject`,
+      {},
+      undefined,
+      config
+    );
+  }
+
+  // 分类相关API
+  async getCategories() {
+    return this.request('get', '/categories');
+  }
+
+  // 标签相关API
+  async getPostsByTag(tag: string) {
+    return this.request('get', `/tags/${tag}`);
+  }
+
+  // 状态管理API
+  async updatePostStatus(slug: string, data: {
+    status: 'draft' | 'published' | 'scheduled' | 'archived';
+    scheduledPublishDate?: Date;
+  }) {
+    return this.request('post', `/slug/${slug}/status`, data as Record<string, unknown>);
+  }
+
+  // 历史记录API
+  async getPostHistory(slug: string) {
+    return this.request('get', `/slug/${slug}/history`);
+  }
+}
+
+export const postService = new PostService();

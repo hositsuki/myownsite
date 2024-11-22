@@ -1,6 +1,8 @@
 import { FaCalendar, FaTags } from 'react-icons/fa';
 import { blogAPI } from '@/services/api';
 import { notFound } from 'next/navigation';
+import { Advertisement } from '@/components/Advertisement';
+import { SocialShare } from '@/components/SocialShare';
 
 // 这里应该从后端API获取文章详情
 async function getPost(slug: string) {
@@ -12,13 +14,14 @@ async function getPost(slug: string) {
   }
 }
 
-export default async function BlogPost({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = await params;
-  const post = await getPost(resolvedParams.id);
+export default async function BlogPost({ params }: { params: { id: string } }) {
+  const post = await getPost(params.id);
 
   if (!post) {
     notFound();
   }
+
+  const currentUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${params.id}`;
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-blue-50">
@@ -28,6 +31,9 @@ export default async function BlogPost({ params }: { params: Promise<{ id: strin
           <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl">
             {post.title}
           </h1>
+          <p className="mt-4 text-lg text-gray-600">
+            {post.excerpt}
+          </p>
           <div className="mt-6 flex items-center justify-center space-x-6 text-gray-500">
             <div className="flex items-center">
               <FaCalendar className="mr-2" />
@@ -48,6 +54,23 @@ export default async function BlogPost({ params }: { params: Promise<{ id: strin
               </span>
             ))}
           </div>
+          <div className="mt-6">
+            <SocialShare
+              url={currentUrl}
+              title={post.title}
+              description={post.excerpt || ''}
+              className="justify-center"
+            />
+          </div>
+        </div>
+
+        {/* Top Advertisement */}
+        <div className="mb-8">
+          <Advertisement
+            slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_BLOG_TOP || ''}
+            format="horizontal"
+            className="mx-auto max-w-3xl"
+          />
         </div>
 
         {/* Article Content */}
@@ -62,11 +85,13 @@ export default async function BlogPost({ params }: { params: Promise<{ id: strin
           />
         </div>
 
-        {/* Advertisement Space */}
-        <div className="mt-16 p-6 bg-white rounded-lg shadow-lg">
-          <div className="text-center text-gray-500">
-            广告位置
-          </div>
+        {/* Bottom Advertisement */}
+        <div className="mt-8 mb-16">
+          <Advertisement
+            slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_BLOG_BOTTOM || ''}
+            format="horizontal"
+            className="mx-auto max-w-3xl"
+          />
         </div>
 
         {/* Author Info */}
@@ -89,7 +114,29 @@ export default async function BlogPost({ params }: { params: Promise<{ id: strin
             </div>
           </div>
         </div>
+
+        {/* Share Again */}
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+            分享这篇文章
+          </h3>
+          <SocialShare
+            url={currentUrl}
+            title={post.title}
+            description={post.excerpt || ''}
+            className="justify-center"
+          />
+        </div>
       </article>
+
+      {/* Sidebar Advertisement (Fixed Position) */}
+      <div className="hidden xl:block fixed top-1/4 right-8">
+        <Advertisement
+          slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_BLOG_SIDEBAR || ''}
+          format="vertical"
+          className="w-[300px]"
+        />
+      </div>
     </main>
   );
 }

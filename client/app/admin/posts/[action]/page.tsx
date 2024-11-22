@@ -1,11 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { FiSave, FiRefreshCw, FiTag, FiFileText, FiEdit3, FiImage, FiX } from 'react-icons/fi';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { FiSave, FiRefreshCw, FiTag, FiFileText, FiEdit3, FiImage, FiX, FiFeather, FiBrain } from 'react-icons/fi';
 import ImageUploader from '@/components/ImageUploader';
-import React from 'react';
+import { useApi } from '@/hooks/useApi';
+import { usePostStore } from '@/store';
+import { blogAPI } from '@/services/api';
+import type { Post } from '@/services/api';
+import { notificationService } from '@/services/notification';
 
 const MDEditor = dynamic(
   () => import('@uiw/react-md-editor').then((mod) => mod.default),
@@ -15,351 +22,341 @@ const MDEditor = dynamic(
   }
 );
 
-const markdownConfig = {
-  components: {
-    img: function(props: React.ImgHTMLAttributes<HTMLImageElement>) {
-      return (
-        <img 
-          {...props}
-          style={{ maxWidth: '100%', height: 'auto', ...props.style }}
-          crossOrigin="anonymous"
-        />
-      );
-    }
-  }
-};
+// 表单验证schema
+const postSchema = z.object({
+  title: z.string().min(1, '标题不能为空').max(100, '标题最长100个字符'),
+  content: z.string().min(1, '内容不能为空'),
+  excerpt: z.string().min(1, '摘要不能为空'),
+  date: z.string(),
+  tags: z.array(z.string()),
+  readTime: z.string(),
+  slug: z.string().min(1, 'URL slug不能为空'),
+  status: z.enum(['draft', 'published', 'scheduled']),
+  scheduledPublishDate: z.string().optional(),
+  author: z.object({
+    name: z.string(),
+    avatar: z.string(),
+    bio: z.string(),
+  }),
+});
 
-interface Post {
-  title: string;
-  content: string;
-  tags: string[];
-  excerpt: string;
-}
+type PostFormData = z.infer<typeof postSchema>;
 
 interface PostEditorProps {
-  params: Promise<{
+  params: {
     action: string;
     slug?: string;
-  }>;
+  };
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default async function PostEditor({ params }: PostEditorProps) {
-  const resolvedParams = await params;
+export default function PostEditor({ params, searchParams }: PostEditorProps) {
   const router = useRouter();
-  const isEdit = resolvedParams.action === 'edit';
-  const [loading, setLoading] = useState(isEdit);
-  const [saving, setSaving] = useState(false);
-  const [enhancing, setEnhancing] = useState(false);
-  const [suggestedTitles, setSuggestedTitles] = useState<string[]>([]);
-  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
-  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
-  const [showImageUploader, setShowImageUploader] = useState(false);
-  const [post, setPost] = useState<Post>({
-    title: '',
-    content: '',
-    tags: [],
-    excerpt: '',
+  const { setCurrentPost } = usePostStore();
+  const isEdit = params.action === 'edit';
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<PostFormData>({
+    resolver: zodResolver(postSchema),
+    defaultValues: {
+      title: '',
+      content: '',
+      excerpt: '',
+      date: new Date().toISOString(),
+      tags: [],
+      readTime: '',
+      slug: '',
+      status: 'draft',
+      scheduledPublishDate: undefined,
+      author: {
+        name: '',
+        avatar: '',
+        bio: '',
+      },
+    },
   });
 
-  useEffect(() => {
-    if (isEdit) {
-      const fetchPost = async () => {
-        try {
-          const response = await fetch(`/api/posts/${resolvedParams.slug}`);
-          const data = await response.json();
-          setPost(data);
-          setLoading(false);
-        } catch (error) {
-          console.error('Error fetching post:', error);
-          setLoading(false);
-        }
-      };
-      fetchPost();
-    }
-  }, [isEdit, resolvedParams.slug]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const method = isEdit ? 'PUT' : 'POST';
-      const url = isEdit ? `/api/posts/${resolvedParams.slug}` : '/api/posts';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(post),
-      });
-
-      if (response.ok) {
+  const {
+    loading: saveLoading,
+    execute: savePost,
+  } = useApi<Post, [PostFormData]>(
+    isEdit ? 
+      async (data: Partial<PostFormData>) => blogAPI.updatePost(params.slug!, data) :
+      async (data: Omit<PostFormData, '_id'>) => blogAPI.createPost(data),
+    {
+      showNotification: true,
+      onSuccess: () => {
         router.push('/admin/posts');
-      }
+      },
+    }
+  );
+
+  const {
+    loading: fetchLoading,
+    execute: fetchPost,
+  } = useApi(
+    async (slug: string) => blogAPI.getPost(slug),
+    {
+      onSuccess: (data) => {
+        // 使用setValue更新表单数据
+        Object.entries(data).forEach(([key, value]) => {
+          setValue(key as keyof PostFormData, value);
+        });
+        setCurrentPost(data);
+      },
+      onError: () => {
+        notificationService.showError('Failed to load post');
+        router.push('/admin/posts');
+      },
+    }
+  );
+
+  useEffect(() => {
+    if (isEdit && params.slug) {
+      fetchPost(params.slug);
+    }
+  }, [isEdit, params.slug]);
+
+  const onSubmit = handleSubmit(async (data) => {
+    try {
+      await savePost(data);
     } catch (error) {
       console.error('Error saving post:', error);
-    } finally {
-      setSaving(false);
     }
-  };
+  });
 
-  const handleEnhance = async () => {
-    setEnhancing(true);
+  const handleImageUpload = async (file: File) => {
     try {
-      const response = await fetch('/api/openai/enhance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: post.content,
-          instruction: 'enhance and expand this technical article, adding more details and examples where appropriate',
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setPost({ ...post, content: data.enhancedContent });
-      }
+      const result = await blogAPI.uploadImage(file);
+      const imageMarkdown = `![${file.name}](${result.url})`;
+      setValue('content', watch('content') + '\n' + imageMarkdown);
     } catch (error) {
-      console.error('Error enhancing content:', error);
-    } finally {
-      setEnhancing(false);
+      notificationService.showError('Failed to upload image');
     }
   };
 
-  const handleGenerateTitles = async () => {
+  const handleAIGenerate = async (type: 'summary' | 'title' | 'tags' | 'improve') => {
     try {
-      const response = await fetch('/api/openai/suggest-titles', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: post.content }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setSuggestedTitles(data.titles);
-        setShowTitleSuggestions(true);
+      let result;
+      switch (type) {
+        case 'summary':
+          result = await blogAPI.generateSummary(watch('content'));
+          setValue('excerpt', result);
+          break;
+        case 'title':
+          result = await blogAPI.optimizeTitle(watch('content'));
+          setValue('title', result);
+          break;
+        case 'tags':
+          result = await blogAPI.generateTags(watch('content'));
+          setValue('tags', result);
+          break;
+        case 'improve':
+          result = await blogAPI.improveContent(watch('content'));
+          setValue('content', result);
+          break;
       }
+      notificationService.showSuccess('AI生成成功');
     } catch (error) {
-      console.error('Error generating titles:', error);
+      console.error('AI生成失败:', error);
+      notificationService.showError('AI生成失败');
     }
   };
 
-  const handleGenerateTags = async () => {
-    try {
-      const response = await fetch('/api/openai/suggest-tags', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: post.content }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setPost({ ...post, tags: data.tags });
-      }
-    } catch (error) {
-      console.error('Error generating tags:', error);
-    }
-  };
-
-  const handleGenerateExcerpt = async () => {
-    try {
-      const response = await fetch('/api/openai/generate-excerpt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: post.content }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setPost({ ...post, excerpt: data.excerpt });
-      }
-    } catch (error) {
-      console.error('Error generating excerpt:', error);
-    }
-  };
-
-  if (loading) {
+  if (fetchLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center h-96">
+        <FiRefreshCw className="w-8 h-8 animate-spin text-gray-500" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="mb-6 relative">
-          <div className="flex items-center space-x-2 mb-2">
-            <input
-              type="text"
-              value={post.title}
-              onChange={(e) => setPost({ ...post, title: e.target.value })}
-              placeholder="文章标题"
-              className="flex-1 px-4 py-2 text-xl font-bold border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              onClick={handleGenerateTitles}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-blue-600"
-              title="生成标题建议"
-            >
-              <FiEdit3 className="h-5 w-5" />
-            </button>
-          </div>
-          
-          {showTitleSuggestions && suggestedTitles.length > 0 && (
-            <div className="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 p-2">
-              <h4 className="text-sm font-medium text-gray-500 mb-2">建议的标题：</h4>
-              {suggestedTitles.map((title, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    setPost({ ...post, title });
-                    setShowTitleSuggestions(false);
-                  }}
-                  className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
-                >
-                  {title}
-                </button>
-              ))}
-              <button
-                onClick={() => setShowTitleSuggestions(false)}
-                className="mt-2 text-sm text-gray-500 hover:text-gray-700"
-              >
-                关闭
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="mb-6">
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              value={post.tags.join(', ')}
-              onChange={(e) => setPost({ ...post, tags: e.target.value.split(',').map(tag => tag.trim()) })}
-              placeholder="标签（用逗号分隔）"
-              className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              onClick={handleGenerateTags}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-blue-600"
-              title="生成标签建议"
-            >
-              <FiTag className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <div className="flex items-center space-x-2">
-            <textarea
-              value={post.excerpt}
-              onChange={(e) => setPost({ ...post, excerpt: e.target.value })}
-              placeholder="文章摘要（可选）"
-              rows={3}
-              className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              onClick={handleGenerateExcerpt}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-blue-600"
-              title="生成摘要"
-            >
-              <FiFileText className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <div data-color-mode="light">
-            <MDEditor
-              value={post.content}
-              onChange={(value) => setPost({ ...post, content: value || '' })}
-              previewOptions={markdownConfig}
-              height={500}
-            />
-          </div>
-        </div>
-
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <form onSubmit={onSubmit} className="space-y-6">
         <div className="flex justify-between items-center">
-          <div className="flex space-x-2">
-            <button
-              onClick={handleEnhance}
-              disabled={enhancing || !post.content}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-            >
-              <FiRefreshCw className={`mr-2 ${enhancing ? 'animate-spin' : ''}`} />
-              {enhancing ? 'AI增强中...' : '使用AI增强内容'}
-            </button>
-
-            <button
-              onClick={() => setShowImageUploader(!showImageUploader)}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-            >
-              <FiImage className="mr-2" />
-              插入图片
-            </button>
-          </div>
-
+          <h1 className="text-3xl font-bold">
+            {isEdit ? 'Edit Post' : 'Create New Post'}
+          </h1>
           <button
-            onClick={handleSave}
-            disabled={saving || !post.title || !post.content}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            type="submit"
+            disabled={saveLoading}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
           >
-            <FiSave className="mr-2" />
-            {saving ? '保存中...' : '保存文章'}
+            {saveLoading ? (
+              <FiRefreshCw className="w-5 h-5 animate-spin mr-2" />
+            ) : (
+              <FiSave className="w-5 h-5 mr-2" />
+            )}
+            Save
           </button>
         </div>
-      </div>
 
-      {showImageUploader && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">上传图片</h3>
-              <button
-                onClick={() => setShowImageUploader(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <FiX />
-              </button>
+        <Controller
+          name="title"
+          control={control}
+          render={({ field }) => (
+            <div>
+              <input
+                {...field}
+                type="text"
+                placeholder="Post Title"
+                className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {errors.title && (
+                <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
+              )}
             </div>
-            <ImageUploader
-              onImageUpload={(imageUrl) => {
-                // 移除开头的 /api，保留 /images 路径
-                const cleanImageUrl = imageUrl.replace(/^\/api\/images/, '/images');
-                const imageMarkdown = `![图片](${cleanImageUrl})\n`;
-                const editor = document.querySelector('[role="textbox"]') as HTMLTextAreaElement;
-                if (editor) {
-                  const cursorPosition = editor.selectionStart || 0;
-                  const content = post.content || '';
-                  const newContent = 
-                    content.slice(0, cursorPosition) + 
-                    imageMarkdown + 
-                    content.slice(cursorPosition);
-                  setPost({
-                    ...post,
-                    content: newContent
-                  });
-                } else {
-                  setPost({
-                    ...post,
-                    content: (post.content || '') + imageMarkdown
-                  });
-                }
-                setShowImageUploader(false);
-              }}
-            />
-          </div>
+          )}
+        />
+
+        <div className="flex space-x-4">
+          <Controller
+            name="tags"
+            control={control}
+            render={({ field: { value, onChange } }) => (
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={value.join(', ')}
+                  onChange={(e) => onChange(e.target.value.split(',').map(tag => tag.trim()))}
+                  placeholder="Tags (comma separated)"
+                  className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {errors.tags && (
+                  <p className="mt-1 text-sm text-red-600">{errors.tags.message}</p>
+                )}
+              </div>
+            )}
+          />
+
+          <Controller
+            name="status"
+            control={control}
+            render={({ field }) => (
+              <div>
+                <select
+                  {...field}
+                  className="px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                  <option value="scheduled">Scheduled</option>
+                </select>
+                {errors.status && (
+                  <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
+                )}
+              </div>
+            )}
+          />
         </div>
-      )}
+
+        {watch('status') === 'scheduled' && (
+          <Controller
+            name="scheduledPublishDate"
+            control={control}
+            render={({ field }) => (
+              <div>
+                <input
+                  {...field}
+                  type="datetime-local"
+                  className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {errors.scheduledPublishDate && (
+                  <p className="mt-1 text-sm text-red-600">{errors.scheduledPublishDate.message}</p>
+                )}
+              </div>
+            )}
+          />
+        )}
+
+        <Controller
+          name="content"
+          control={control}
+          render={({ field }) => (
+            <div>
+              <MDEditor
+                {...field}
+                preview="edit"
+                className="min-h-[500px]"
+              />
+              {errors.content && (
+                <p className="mt-1 text-sm text-red-600">{errors.content.message}</p>
+              )}
+            </div>
+          )}
+        />
+
+        <div className="flex flex-wrap gap-4">
+          <button
+            type="button"
+            onClick={() => handleAIGenerate('summary')}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <FiBrain className="w-4 h-4 mr-2" />
+            生成摘要
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAIGenerate('title')}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <FiEdit3 className="w-4 h-4 mr-2" />
+            优化标题
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAIGenerate('tags')}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <FiTag className="w-4 h-4 mr-2" />
+            生成标签
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAIGenerate('improve')}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <FiFeather className="w-4 h-4 mr-2" />
+            改进内容
+          </button>
+          <ImageUploader onUpload={handleImageUpload}>
+            {({ openUploader }) => (
+              <button
+                type="button"
+                onClick={openUploader}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                <FiImage className="w-5 h-5 mr-2" />
+                选择图片
+              </button>
+            )}
+          </ImageUploader>
+        </div>
+
+        <Controller
+          name="excerpt"
+          control={control}
+          render={({ field }) => (
+            <div>
+              <textarea
+                {...field}
+                placeholder="Post Excerpt"
+                className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                rows={4}
+              />
+              {errors.excerpt && (
+                <p className="mt-1 text-sm text-red-600">{errors.excerpt.message}</p>
+              )}
+            </div>
+          )}
+        />
+      </form>
     </div>
   );
 }

@@ -18,18 +18,25 @@
     "start": "concurrently \"npm run start:client\" \"npm run start:server\"",
     "start:client": "cd client && npm run start",
     "start:server": "cd server && npm run start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "type-check": "concurrently \"npm run type-check:client\" \"npm run type-check:server\"",
+    "type-check:client": "cd client && tsc --noEmit",
+    "type-check:server": "cd server && npm run type-check",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "dependencies": {
     "concurrently": "^8.2.2",
     "lru-cache": "^10.2.0"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@typescript-eslint/eslint-plugin": "^6.4.0",
     "@typescript-eslint/parser": "^6.4.0",
+    "dotenv": "^16.4.5",
     "eslint": "^8.56.0",
+    "glob": "^10.3.10",
+    "hardhat": "^2.22.16",
     "prettier": "^3.1.1",
-    "rimraf": "^5.0.5",
-    "glob": "^10.3.10"
+    "rimraf": "^5.0.5"
   }
 }

@@ -1,6 +1,7 @@
 import axios from './axios';
+import { BaseService, BaseModel } from './base';
 
-export interface Comment {
+export interface Comment extends BaseModel {
   _id: string;
   post: string;
   author: {
@@ -16,31 +17,52 @@ export interface Comment {
   isEdited: boolean;
 }
 
-export const getPostComments = async (postId: string): Promise<Comment[]> => {
-  const response = await axios.get(`/comments/post/${postId}`);
-  return response.data;
-};
+class CommentService extends BaseService<Comment> {
+  constructor() {
+    super('/comments');
+  }
 
-export const createComment = async (postId: string, content: string): Promise<Comment> => {
-  const response = await axios.post('/comments', { postId, content });
-  return response.data;
-};
+  /**
+   * 获取文章的评论列表
+   */
+  async getPostComments(postId: string): Promise<Comment[]> {
+    return this.request('get', `/post/${postId}`);
+  }
 
-export const replyToComment = async (commentId: string, content: string): Promise<Comment> => {
-  const response = await axios.post(`/comments/${commentId}/reply`, { content });
-  return response.data;
-};
+  /**
+   * 添加评论
+   */
+  async createComment(postId: string, content: string): Promise<Comment> {
+    return this.request('post', '', { postId, content });
+  }
 
-export const likeComment = async (commentId: string): Promise<{ likes: number }> => {
-  const response = await axios.post(`/comments/${commentId}/like`);
-  return response.data;
-};
+  /**
+   * 回复评论
+   */
+  async replyToComment(commentId: string, content: string): Promise<Comment> {
+    return this.request('post', `/${commentId}/reply`, { content });
+  }
 
-export const editComment = async (commentId: string, content: string): Promise<Comment> => {
-  const response = await axios.put(`/comments/${commentId}`, { content });
-  return response.data;
-};
+  /**
+   * 点赞评论
+   */
+  async likeComment(commentId: string): Promise<{ likes: number }> {
+    return this.request('post', `/${commentId}/like`);
+  }
 
-export const deleteComment = async (commentId: string): Promise<void> => {
-  await axios.delete(`/comments/${commentId}`);
-};
+  /**
+   * 编辑评论
+   */
+  async editComment(commentId: string, content: string): Promise<Comment> {
+    return this.request('put', `/${commentId}`, { content });
+  }
+
+  /**
+   * 删除评论
+   */
+  async deleteComment(commentId: string): Promise<void> {
+    return this.request('delete', `/${commentId}`);
+  }
+}
+
+export default new CommentService();

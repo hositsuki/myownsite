@@ -1,6 +1,7 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import { Schema, Types } from 'mongoose';
+import { IVersionedDocument, BaseModel, defaultSchemaOptions } from '../core/BaseModel';
 
-export interface IPost extends Document {
+export interface IPost extends IVersionedDocument {
   title: string;
   content: string;
   excerpt: string;
@@ -8,116 +9,133 @@ export interface IPost extends Document {
   tags: string[];
   readTime: string;
   slug: string;
-  author: {
-    name: string;
-    avatar: string;
-    bio: string;
-  };
-  status: string;
+  author: Types.ObjectId;
+  status: 'draft' | 'published' | 'scheduled' | 'archived';
   category: string;
   views: number;
-  seo: {
+  seo?: {
     metaTitle: string;
     metaDescription: string;
     keywords: string[];
   };
-  comments: Array<{
+  comments?: Array<{
     author: string;
     content: string;
     date: Date;
     email: string;
     isApproved: boolean;
   }>;
+  scheduledPublishDate?: Date;
   statusHistory: Array<{
     status: string;
     date: Date;
     updatedBy: string;
   }>;
-  scheduledPublishDate?: Date;
-  version: number;
-  lastModified: Date;
   autoSaveContent?: string;
   autoSaveDate?: Date;
+  history: Array<{
+    content: string;
+    date: Date;
+    version: number;
+  }>;
+  lastModified: Date;
 }
 
-const PostSchema = new Schema<IPost>({
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  excerpt: { type: String, required: true },
-  date: { type: Date, default: Date.now },
-  tags: [{ type: String }],
-  readTime: { type: String, required: true },
-  slug: { type: String, required: true, unique: true },
-  author: {
-    name: { type: String, required: true },
-    avatar: { type: String, required: true },
-    bio: { type: String, required: true }
-  },
-  status: { 
-    type: String, 
-    required: true, 
-    enum: ['draft', 'published', 'scheduled', 'archived'], 
-    default: 'draft' 
-  },
-  category: { 
-    type: String, 
-    required: true 
-  },
-  views: { 
-    type: Number, 
-    default: 0 
-  },
-  seo: {
-    metaTitle: { type: String },
-    metaDescription: { type: String },
-    keywords: [{ type: String }]
-  },
-  comments: [{
-    author: { type: String, required: true },
-    content: { type: String, required: true },
-    date: { type: Date, default: Date.now },
-    email: { type: String, required: true },
-    isApproved: { type: Boolean, default: false }
-  }],
-  statusHistory: [{
-    status: { type: String, required: true },
-    date: { type: Date, default: Date.now },
-    updatedBy: { type: String, required: true }
-  }],
-  scheduledPublishDate: { type: Date },
-  version: { type: Number, default: 1 },
-  lastModified: { type: Date, default: Date.now },
-  autoSaveContent: { type: String },
-  autoSaveDate: { type: Date }
-});
+class PostModel extends BaseModel<IPost> {
+  constructor() {
+    const schema = new Schema<IPost>({
+      title: { type: String, required: true },
+      content: { type: String, required: true },
+      excerpt: { type: String, required: true },
+      date: { type: Date, default: Date.now },
+      tags: [{ type: String }],
+      readTime: { type: String, required: true },
+      slug: { type: String, required: true, unique: true },
+      author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+      status: { 
+        type: String, 
+        required: true, 
+        enum: ['draft', 'published', 'scheduled', 'archived'], 
+        default: 'draft' 
+      },
+      category: { 
+        type: String, 
+        required: true 
+      },
+      views: { 
+        type: Number, 
+        default: 0 
+      },
+      seo: {
+        metaTitle: String,
+        metaDescription: String,
+        keywords: [String]
+      },
+      comments: [{
+        author: String,
+        content: String,
+        date: { type: Date, default: Date.now },
+        email: String,
+        isApproved: { type: Boolean, default: false }
+      }],
+      scheduledPublishDate: Date,
+      statusHistory: [{
+        status: { type: String, required: true },
+        date: { type: Date, default: Date.now },
+        updatedBy: { type: String, required: true }
+      }],
+      autoSaveContent: { type: String },
+      autoSaveDate: { type: Date },
+      history: [{
+        content: String,
+        date: { type: Date, default: Date.now },
+        version: Number
+      }],
+      lastModified: { type: Date, default: Date.now }
+    }, defaultSchemaOptions);
 
-// 创建文章摘要
-PostSchema.pre('save', function(next) {
-  if (!this.excerpt) {
-    this.excerpt = this.content.substring(0, 200) + '...';
-  }
-  next();
-});
+    // 添加索引
+    this.addIndexes([
+      { slug: 1 },
+      { status: 1 },
+      { category: 1 },
+      { tags: 1 },
+      { createdAt: -1 }
+    ]);
 
-// 更新版本号和最后修改时间
-PostSchema.pre('save', function(next) {
-  if (this.isModified('content')) {
-    this.version += 1;
-    this.lastModified = new Date();
-  }
-  next();
-});
+    // 添加审计和版本字段
+    this.addAuditFields();
+    this.addVersionFields();
 
-// 添加状态历史
-PostSchema.pre('save', function(next) {
-  if (this.isModified('status')) {
-    this.statusHistory.push({
-      status: this.status,
-      date: new Date(),
-      updatedBy: this.author.name // 这里应该使用实际的用户ID
+    // 添加中间件
+    schema.pre('save', function(next) {
+      if (!this.excerpt) {
+        this.excerpt = this.content.substring(0, 200) + '...';
+      }
+      next();
     });
-  }
-  next();
-});
 
-export default mongoose.model<IPost>('Post', PostSchema);
+    schema.pre('save', function(next) {
+      if (this.isModified('content')) {
+        this.version += 1;
+        this.lastModified = new Date();
+      }
+      next();
+    });
+
+    schema.pre('save', function(next) {
+      if (this.isModified('status')) {
+        this.statusHistory.push({
+          status: this.status,
+          date: new Date(),
+          updatedBy: this.author.toString() // 转换为字符串
+        });
+      }
+      next();
+    });
+
+    super('Post', schema);
+  }
+}
+
+export default new PostModel().model;

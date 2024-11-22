@@ -5,10 +5,11 @@ import { FiUpload, FiX } from 'react-icons/fi';
 import Image from 'next/image';
 
 interface ImageUploaderProps {
-    onImageUpload?: (imageUrl: string) => void;
+    onUpload: (file: File) => Promise<void>;
+    children?: (props: { openUploader: () => void }) => React.ReactElement;
 }
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
+const ImageUploader: React.FC<ImageUploaderProps> = ({ onUpload, children }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [preview, setPreview] = useState<string | null>(null);
@@ -54,30 +55,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
         setUploading(true);
         setError(null);
 
-        const formData = new FormData();
-        formData.append('image', file);
-
         try {
-            const response = await fetch('http://localhost:5000/images', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await response.json();
-            if (!response.ok || !data.success) {
-                throw new Error(data.error || '上传失败');
-            }
-
-            if (!data.image?.url) {
-                throw new Error('服务器返回数据格式错误');
-            }
-
-            // 直接使用服务器返回的 URL
-            setPreview(data.image.url);
-            
-            if (onImageUpload) {
-                onImageUpload(data.image.url);
-            }
+            await onUpload(file);
+            setPreview(URL.createObjectURL(file));
         } catch (err) {
             console.error('Image upload error:', err);
             setError(err instanceof Error ? err.message : '上传失败，请重试');
@@ -92,6 +72,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
         setError(null);
     };
 
+    const openUploader = () => {
+        document.getElementById('fileInput')?.click();
+    };
+
     return (
         <div className="w-full">
             {!preview ? (
@@ -102,7 +86,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    onClick={() => document.getElementById('fileInput')?.click()}
+                    onClick={openUploader}
                 >
                     <input
                         type="file"
@@ -122,6 +106,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
                     {error && (
                         <p className="text-red-500 mt-2 text-sm">{error}</p>
                     )}
+                    {children && children({ openUploader })}
                 </div>
             ) : (
                 <div className="relative">

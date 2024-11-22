@@ -1,50 +1,73 @@
-import axios from 'axios';
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { AuthService } from './auth';
 
-const instance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000',
-  timeout: 10000,
+// API响应的基础接口
+export interface ApiResponse<T> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+// 分页响应接口
+export interface PaginatedData<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface PaginatedResponse<T> extends ApiResponse<PaginatedData<T>> {}
+
+interface RetryConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+const authService = new AuthService();
+
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// 请求拦截器
-instance.interceptors.request.use(
-  (config) => {
-    // 从 localStorage 获取 token
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    
-    // 如果有 token，添加到请求头
+api.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = authService.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
     return config;
   },
-  (error) => {
+  (error: AxiosError) => {
     return Promise.reject(error);
   }
 );
 
-// 响应拦截器
-instance.interceptors.response.use(
-  (response) => {
+api.interceptors.response.use(
+  (response: AxiosResponse) => {
     return response;
   },
-  (error) => {
-    if (error.response) {
-      // 处理 401 未授权错误
-      if (error.response.status === 401) {
-        // 清除本地存储的 token
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetryConfig;
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        await authService.refreshToken();
+        const token = authService.getToken();
+        if (token && originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
         }
-        // 重定向到登录页
+        return api(originalRequest);
+      } catch (refreshError) {
+        authService.clearTokens();
         window.location.href = '/login';
+        return Promise.reject(refreshError);
       }
     }
     return Promise.reject(error);
   }
 );
 
-export default instance;
+export default api;

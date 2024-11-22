@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Comment as CommentType, getPostComments, createComment, replyToComment, likeComment, deleteComment } from '@/services/comments';
+import { commentService } from '@/services/comments';
 import { Avatar, Button, TextField, Typography, Box, IconButton, Divider } from '@mui/material';
 import { ThumbUp, Reply, Delete, Edit } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
+import { Comment as CommentType } from '@/types/comment';
 
 interface CommentProps {
   comment: CommentType;
@@ -54,10 +55,14 @@ const Comment: React.FC<CommentProps> = ({ comment, onReply, onLike, onDelete, l
             >
               Reply
             </Button>
-            {session?.user?.email === comment.author._id && (
-              <IconButton size="small" onClick={() => onDelete(comment._id)}>
-                <Delete fontSize="small" />
-              </IconButton>
+            {session?.user?.id === comment.author._id && (
+              <Button
+                size="small"
+                startIcon={<Delete />}
+                onClick={() => onDelete(comment._id)}
+              >
+                Delete
+              </Button>
             )}
           </Box>
           {isReplying && (
@@ -66,16 +71,13 @@ const Comment: React.FC<CommentProps> = ({ comment, onReply, onLike, onDelete, l
                 fullWidth
                 multiline
                 rows={2}
-                placeholder="Write a reply..."
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
-                size="small"
+                placeholder="Write a reply..."
               />
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1, gap: 1 }}>
-                <Button size="small" onClick={() => setIsReplying(false)}>
-                  Cancel
-                </Button>
-                <Button size="small" variant="contained" onClick={handleReply}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                <Button onClick={() => setIsReplying(false)}>Cancel</Button>
+                <Button variant="contained" onClick={handleReply}>
                   Reply
                 </Button>
               </Box>
@@ -83,16 +85,6 @@ const Comment: React.FC<CommentProps> = ({ comment, onReply, onLike, onDelete, l
           )}
         </Box>
       </Box>
-      {comment.replies?.map((reply) => (
-        <Comment
-          key={reply._id}
-          comment={reply}
-          onReply={onReply}
-          onLike={onLike}
-          onDelete={onDelete}
-          level={level + 1}
-        />
-      ))}
     </Box>
   );
 };
@@ -105,68 +97,79 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId }) => {
   const { data: session } = useSession();
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchComments();
+    loadComments();
   }, [postId]);
 
-  const fetchComments = async () => {
+  const loadComments = async () => {
     try {
-      const fetchedComments = await getPostComments(postId);
-      setComments(fetchedComments);
+      const response = await commentService.getComments(postId);
+      setComments(response.data);
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      console.error('Failed to load comments:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCreateComment = async () => {
     if (!newComment.trim() || !session) return;
-    setIsLoading(true);
+
     try {
-      await createComment(postId, newComment);
+      const response = await commentService.createComment({
+        content: newComment,
+        postId,
+      });
+      setComments([...comments, response.data]);
       setNewComment('');
-      await fetchComments();
     } catch (error) {
-      console.error('Error creating comment:', error);
-    }
-    setIsLoading(false);
-  };
-
-  const handleReply = async (commentId: string, content: string) => {
-    if (!session) return;
-    try {
-      await replyToComment(commentId, content);
-      await fetchComments();
-    } catch (error) {
-      console.error('Error replying to comment:', error);
+      console.error('Failed to create comment:', error);
     }
   };
 
-  const handleLike = async (commentId: string) => {
+  const handleReplyToComment = async (commentId: string, content: string) => {
     if (!session) return;
+
     try {
-      await likeComment(commentId);
-      await fetchComments();
+      const response = await commentService.replyToComment(postId, commentId, {
+        content,
+      });
+      await loadComments(); // Reload all comments to get the updated structure
     } catch (error) {
-      console.error('Error liking comment:', error);
+      console.error('Failed to reply to comment:', error);
     }
   };
 
-  const handleDelete = async (commentId: string) => {
+  const handleLikeComment = async (commentId: string) => {
     if (!session) return;
+
     try {
-      await deleteComment(commentId);
-      await fetchComments();
+      await commentService.likeComment(postId, commentId);
+      await loadComments(); // Reload comments to get updated likes count
     } catch (error) {
-      console.error('Error deleting comment:', error);
+      console.error('Failed to like comment:', error);
     }
   };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await commentService.deleteComment(postId, commentId);
+      setComments(comments.filter((c) => c._id !== commentId));
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+    }
+  };
+
+  if (loading) {
+    return <Typography>Loading comments...</Typography>;
+  }
 
   return (
-    <Box sx={{ mt: 4 }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Comments ({comments.length})
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        Comments
       </Typography>
       {session ? (
         <Box sx={{ mb: 4 }}>
@@ -174,35 +177,34 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId }) => {
             fullWidth
             multiline
             rows={3}
-            placeholder="Write a comment..."
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Write a comment..."
           />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-            <Button
-              variant="contained"
-              onClick={handleCreateComment}
-              disabled={isLoading || !newComment.trim()}
-            >
-              Post Comment
+            <Button variant="contained" onClick={handleCreateComment}>
+              Comment
             </Button>
           </Box>
         </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Please sign in to leave a comment.
+        <Typography color="text.secondary" gutterBottom>
+          Please sign in to comment
         </Typography>
       )}
-      <Divider sx={{ mb: 2 }} />
-      {comments.map((comment) => (
-        <Comment
-          key={comment._id}
-          comment={comment}
-          onReply={handleReply}
-          onLike={handleLike}
-          onDelete={handleDelete}
-        />
-      ))}
+      <Box>
+        {comments.map((comment) => (
+          <React.Fragment key={comment._id}>
+            <Comment
+              comment={comment}
+              onReply={handleReplyToComment}
+              onLike={handleLikeComment}
+              onDelete={handleDeleteComment}
+            />
+            <Divider />
+          </React.Fragment>
+        ))}
+      </Box>
     </Box>
   );
 };

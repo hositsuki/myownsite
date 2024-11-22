@@ -3,17 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
-
-interface Post {
-  slug: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-  date: string;
-  readTime: number;
-  tags: string[];
-}
+import { blogAPI, Post } from '@/services/api';
 
 export default function PostsManagement() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -22,8 +12,7 @@ export default function PostsManagement() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const response = await fetch('/api/posts');
-        const data = await response.json();
+        const data = await blogAPI.getAllPosts();
         setPosts(data);
         setLoading(false);
       } catch (error) {
@@ -39,7 +28,7 @@ export default function PostsManagement() {
     if (!confirm('确定要删除这篇文章吗？')) return;
 
     try {
-      await fetch(`/api/posts/${slug}`, { method: 'DELETE' });
+      await blogAPI.deletePost(slug);
       setPosts(posts.filter(post => post.slug !== slug));
     } catch (error) {
       console.error('Error deleting post:', error);
