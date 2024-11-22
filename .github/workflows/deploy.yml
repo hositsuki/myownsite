@@ -122,8 +122,24 @@ jobs:
       - name: Deploy to Railway
         id: railway-deploy
         run: |
-          npm install
+          # Create a temporary package.json for server deployment
+          echo '{
+            "name": "personal-website-server",
+            "version": "1.0.0",
+            "private": true,
+            "scripts": {
+              "build": "cd server && npm install && npm run build",
+              "start": "cd server && npm start"
+            }
+          }' > temp-package.json
+          mv package.json package.json.bak
+          mv temp-package.json package.json
+          
+          # Deploy to Railway
           railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
+          
+          # Restore original package.json
+          mv package.json.bak package.json
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
