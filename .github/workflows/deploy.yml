@@ -106,7 +106,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     outputs:
-      url: ${{ steps.railway-deploy.outputs.url }}
+      url: ${{ steps.railway-deploy.outputs.deployment_url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -135,13 +135,32 @@ jobs:
           mv package.json package.json.bak
           mv temp-package.json package.json
           
-          # Deploy to Railway
-          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
+          # Deploy to Railway with verbose output and capture URL
+          RAILWAY_OUTPUT=$(railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach --verbose)
+          RAILWAY_EXIT_CODE=$?
+          echo "Railway deployment output:"
+          echo "$RAILWAY_OUTPUT"
+          
+          # Extract deployment URL from output
+          DEPLOY_URL=$(echo "$RAILWAY_OUTPUT" | grep -o 'https://.*\.railway\.app' || echo "")
+          echo "deployment_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
           
           # Restore original package.json
           mv package.json.bak package.json
+          
+          # Exit with Railway's exit code
+          exit $RAILWAY_EXIT_CODE
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Check deployment URL
+        if: success()
+        run: |
+          if [ -n "${{ steps.railway-deploy.outputs.deployment_url }}" ]; then
+            echo "Deployment URL: ${{ steps.railway-deploy.outputs.deployment_url }}"
+          else
+            echo "Warning: No deployment URL found in Railway output"
+          fi
 
   deploy-frontend:
     needs: deploy-backend
