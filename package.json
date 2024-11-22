@@ -25,9 +25,8 @@
     "lru-cache": "^10.2.0"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^7.1.0",
-    "@typescript-eslint/parser": "^7.1.0",
-    "@eslint/eslint-config": "^2.1.0",
+    "@typescript-eslint/eslint-plugin": "^6.4.0",
+    "@typescript-eslint/parser": "^6.4.0",
     "eslint": "^8.56.0",
     "prettier": "^3.1.1",
     "rimraf": "^5.0.5",
