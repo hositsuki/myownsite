@@ -121,7 +121,8 @@ jobs:
         id: railway-deploy
         run: |
           cd server
-          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+          railway init
+          railway link --environment production
           railway variables set \
             NODE_ENV=production \
             MONGODB_URI=${{ secrets.MONGODB_URI }} \
@@ -140,7 +141,7 @@ jobs:
             RATE_LIMIT_MAX_REQUESTS=100 \
             MAX_IMAGE_SIZE=5242880 \
             ALLOWED_IMAGE_TYPES="image/jpeg,image/png,image/gif,image/webp"
-          railway up
+          railway up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
