@@ -122,18 +122,45 @@ jobs:
       - name: Deploy to Railway
         id: railway-deploy
         run: |
-          # Deploy to Railway with verbose output and capture URL
-          RAILWAY_OUTPUT=$(railway up --service "${{ secrets.RAILWAY_SERVICE_ID }}" --detach --verbose)
-          RAILWAY_EXIT_CODE=$?
-          echo "Railway deployment output:"
-          echo "$RAILWAY_OUTPUT"
+          # Build the server first
+          echo "Building server..."
+          npm install
+          npm run build
           
-          # Extract deployment URL from output
-          DEPLOY_URL=$(echo "$RAILWAY_OUTPUT" | grep -o 'https://.*\.railway\.app' || echo "")
+          # Deploy to Railway
+          echo "Starting Railway deployment..."
+          railway up
+          
+          # Wait for deployment to complete and get status
+          echo "Waiting for deployment to complete..."
+          DEPLOY_ID=$(railway status --json | jq -r '.deployments[0].id')
+          
+          # Poll deployment status
+          for i in {1..30}; do
+            STATUS=$(railway status --json | jq -r ".deployments[] | select(.id==\"$DEPLOY_ID\") | .status")
+            echo "Deployment status: $STATUS"
+            
+            if [ "$STATUS" = "SUCCESS" ]; then
+              echo "Deployment completed successfully!"
+              break
+            elif [ "$STATUS" = "FAILED" ]; then
+              echo "Deployment failed!"
+              railway logs
+              exit 1
+            fi
+            
+            if [ $i -eq 30 ]; then
+              echo "Deployment timed out after 5 minutes"
+              railway logs
+              exit 1
+            fi
+            
+            sleep 10
+          done
+          
+          # Get deployment URL
+          DEPLOY_URL=$(railway status --json | jq -r '.deployments[0].url')
           echo "deployment_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
-          
-          # Exit with Railway's exit code
-          exit $RAILWAY_EXIT_CODE
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
