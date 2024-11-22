@@ -1,7 +1,6 @@
 module.exports = {
   root: true,
   extends: [
-    'standard-with-typescript',
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended'
   ],
