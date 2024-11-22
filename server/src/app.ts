@@ -35,6 +35,11 @@ app.use('/api/openai', openaiRouter);
 app.use('/api/preview', previewRouter);
 app.use('/api/comments', commentsRouter);
 
+// Add health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error(err.stack);
