@@ -1,6 +1,7 @@
 module.exports = {
   root: true,
   extends: [
+    'standard-with-typescript',
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended'
   ],
@@ -19,6 +20,7 @@ module.exports = {
   rules: {
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/explicit-function-return-type': 'off',
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
+    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/strict-boolean-expressions': 'off'
   }
 };
