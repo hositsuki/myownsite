@@ -43,12 +43,12 @@ jobs:
 
           # If any variables are missing, fail the check
           if [ ${#missing_vars[@]} -ne 0 ]; then
-            echo "❌ Missing environment variables:"
+            echo " Missing environment variables:"
             printf '%s\n' "${missing_vars[@]}"
             exit 1
           fi
 
-          echo "✅ All required environment variables are set"
+          echo " All required environment variables are set"
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -127,11 +127,37 @@ jobs:
             "name": "personal-website-server",
             "version": "1.0.0",
             "private": true,
+            "type": "module",
             "scripts": {
-              "build": "cd server && npm install && npm run build",
-              "start": "cd server && npm start"
+              "build": "tsc",
+              "start": "node dist/app.js"
+            },
+            "dependencies": {
+              "@types/multer": "^1.4.12",
+              "@types/redis": "^4.0.10",
+              "bcryptjs": "^2.4.3",
+              "cloudinary": "^2.5.1",
+              "cors": "^2.8.5",
+              "dotenv": "^16.4.5",
+              "express": "^4.18.2",
+              "jsonwebtoken": "^9.0.2",
+              "mongoose": "^8.8.2",
+              "morgan": "^1.10.0",
+              "multer": "^1.4.5-lts.1",
+              "redis": "^4.7.0",
+              "sharp": "^0.33.5",
+              "winston": "^3.11.0",
+              "typescript": "^5.0.0",
+              "@types/express": "^4.17.21",
+              "@types/node": "^20.0.0"
             }
           }' > temp-package.json
+          
+          # Copy server files
+          cp -r server/src .
+          cp server/tsconfig.json .
+          
+          # Replace package.json
           mv package.json package.json.bak
           mv temp-package.json package.json
           
@@ -145,8 +171,9 @@ jobs:
           DEPLOY_URL=$(echo "$RAILWAY_OUTPUT" | grep -o 'https://.*\.railway\.app' || echo "")
           echo "deployment_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
           
-          # Restore original package.json
+          # Restore original package.json and clean up
           mv package.json.bak package.json
+          rm -rf src tsconfig.json
           
           # Exit with Railway's exit code
           exit $RAILWAY_EXIT_CODE
@@ -192,7 +219,7 @@ jobs:
           DISCORD_WEBHOOK: https://discord.com/api/webhooks/${{ secrets.DISCORD_WEBHOOK_ID }}/${{ secrets.DISCORD_WEBHOOK_TOKEN }}
         with:
           args: |
-            🚀 Deployment Status:
+            Deployment Status:
             Backend: ${{ needs.deploy-backend.result }}
             Frontend: ${{ needs.deploy-frontend.result }}
             
