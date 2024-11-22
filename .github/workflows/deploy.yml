@@ -123,9 +123,9 @@ jobs:
         id: railway-deploy
         run: |
           # Deploy to Railway with verbose output and capture URL
-          RAILWAY_OUTPUT=$(railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach --verbose)
+          RAILWAY_OUTPUT=$(railway up --service "${{ secrets.RAILWAY_SERVICE_ID }}" --detach --verbose)
           RAILWAY_EXIT_CODE=$?
-          echo "Railway deployment output:
+          echo "Railway deployment output:"
           echo "$RAILWAY_OUTPUT"
           
           # Extract deployment URL from output
@@ -163,7 +163,7 @@ jobs:
           vercel-args: '--prod'
         env:
           NEXT_PUBLIC_API_URL: ${{ needs.deploy-backend.outputs.url }}
-          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
 
   notify:
     needs: [deploy-backend, deploy-frontend]
