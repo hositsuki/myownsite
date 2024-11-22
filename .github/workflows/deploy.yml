@@ -121,6 +121,7 @@ jobs:
         id: railway-deploy
         run: |
           cd server
+          npm install
           railway init
           railway link --environment production
           railway variables set \
